@@ -1,0 +1,51 @@
+name: smartscanocr
+description: "SmartScan OCR — an offline-first document scanner with on-device OCR and PDF export."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # --- State management & navigation ---
+  flutter_riverpod: ^3.3.2 # DI + reactive state; providers overridable with fakes in tests
+  go_router: ^17.3.0 # declarative routing
+
+  # --- Local persistence (offline-first) ---
+  hive_ce: ^2.19.3 # maintained Hive Community Edition; pure-Dart key/value store, no codegen
+  hive_ce_flutter: ^2.3.4 # Hive.initFlutter() + path_provider integration
+
+  # --- Scanning & import ---
+  cunning_document_scanner: ^2.5.0 # native scanner UI (ML Kit / VisionKit); returns image paths
+  image_picker: ^1.2.3 # first-class image import (gallery, Android Photo Picker)
+
+  # --- On-device OCR (no cloud) ---
+  google_mlkit_text_recognition: ^0.15.1 # offline text recognition, Latin script
+
+  # --- PDF generation, sharing, image processing ---
+  pdf: ^3.13.0 # build the exported PDF (requires Dart >= 3.12)
+  printing: ^5.15.0 # share / print / preview a PDF
+  image: ^4.9.1 # decode / EXIF-bake / resize / JPEG-encode for compression
+
+  # --- Files & sharing ---
+  path_provider: ^2.1.6 # app documents directory
+  path: ^1.9.1 # path joining
+  share_plus: ^13.2.0 # share PDF / text via the system share sheet
+
+  # --- Utilities ---
+  intl: ^0.20.3 # timestamped filenames (DateFormat)
+  uuid: ^4.5.3 # document / page ids
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

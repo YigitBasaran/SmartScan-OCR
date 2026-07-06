@@ -34,7 +34,7 @@ class DocumentCard extends StatelessWidget {
                         color: theme.colorScheme.outline,
                       ),
                     )
-                  : PageThumbnail(path: thumbnail),
+                  : PageThumbnail(path: thumbnail, showWatermark: true),
             ),
             Padding(
               padding: const EdgeInsets.all(12),

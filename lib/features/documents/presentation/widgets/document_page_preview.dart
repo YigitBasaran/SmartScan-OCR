@@ -25,8 +25,10 @@ class DocumentPagePreview extends StatelessWidget {
             child: AspectRatio(
               aspectRatio: 0.75,
               child: PageThumbnail(
-                path: page.imagePath,
-                quarterTurns: page.rotationQuarterTurns,
+                path: page.effectiveImagePath,
+                quarterTurns: page.displayQuarterTurns,
+                filter: page.displayFilter,
+                showWatermark: true,
               ),
             ),
           );

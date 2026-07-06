@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:smartscanocr/core/providers/service_providers.dart';
-import 'package:smartscanocr/core/utils/filename_util.dart';
 import 'package:smartscanocr/core/widgets/app_snack_bar.dart';
+import 'package:smartscanocr/features/documents/data/document_exporter.dart';
 import 'package:smartscanocr/features/documents/domain/entities/scanned_document.dart';
+import 'package:smartscanocr/features/documents/domain/ocr_text_formatter.dart';
 import 'package:smartscanocr/features/documents/presentation/controllers/documents_controller.dart';
 import 'package:smartscanocr/features/documents/presentation/widgets/document_card.dart';
 import 'package:smartscanocr/features/documents/presentation/widgets/document_page_preview.dart';
@@ -54,6 +55,11 @@ class _DetailView extends ConsumerWidget {
       appBar: AppBar(
         title: Text(document.title, overflow: TextOverflow.ellipsis),
         actions: [
+          IconButton(
+            tooltip: 'Edit document',
+            icon: const Icon(Icons.edit_document),
+            onPressed: () => context.push('/document/${document.id}/edit'),
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               switch (value) {
@@ -81,7 +87,7 @@ class _DetailView extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: _ActionBar(
-              onSharePdf: () => _sharePdf(context, ref),
+              onSharePdf: () => _exportPdf(context, ref),
               onShareText: () => _shareText(context, ref),
               onCopyText: () => _copyText(context),
               onPrint: () => _printPdf(context, ref),
@@ -100,21 +106,86 @@ class _DetailView extends ConsumerWidget {
     );
   }
 
-  Future<void> _sharePdf(BuildContext context, WidgetRef ref) async {
+  Future<void> _exportPdf(BuildContext context, WidgetRef ref) async {
     if (!document.hasPdf) {
       showInfoSnackBar(context, 'No PDF is available for this document.');
       return;
     }
-    try {
-      await ref
-          .read(sharingServiceProvider)
-          .sharePdf(
-            path: document.pdfPath!,
-            fileName: buildPdfFileName(document.createdAt),
-          );
-    } catch (error) {
+    final removeWatermark = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Export PDF',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: const Text('Export with watermark'),
+              subtitle: const Text('Free export with SmartScan OCR watermark.'),
+              onTap: () => Navigator.pop(context, false),
+            ),
+            ListTile(
+              leading: const Icon(Icons.workspace_premium_outlined),
+              title: const Text('Remove watermark'),
+              subtitle: const Text(
+                'Watch an ad to export this PDF without the watermark.',
+              ),
+              onTap: () => Navigator.pop(context, true),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (removeWatermark == null || !context.mounted) return;
+
+    final exporter = ref.read(documentExporterProvider);
+
+    if (removeWatermark) {
+      // Rewarded-ad gate — required for EVERY watermark-free export (no
+      // persisted unlock).
+      final ads = ref.read(rewardedAdServiceProvider);
+      if (!await ads.isRewardedAdAvailable()) {
+        if (!context.mounted) return;
+        showInfoSnackBar(
+          context,
+          'Ad is not available right now. You can still export with watermark.',
+        );
+        return;
+      }
       if (!context.mounted) return;
-      showErrorFeedback(context, error);
+      final reward = await ads.showWatermarkRemovalAd(context);
+      if (!context.mounted) return;
+      if (!reward.earnedReward) {
+        showInfoSnackBar(context, 'Watermark-free export was not unlocked.');
+        return;
+      }
+      final outcome = await exporter.exportWatermarkFree(document);
+      if (!context.mounted) return;
+      _showExportOutcome(context, outcome);
+    } else {
+      final outcome = await exporter.exportWithWatermark(document);
+      if (!context.mounted) return;
+      _showExportOutcome(context, outcome);
+    }
+  }
+
+  void _showExportOutcome(BuildContext context, ExportOutcome outcome) {
+    switch (outcome.kind) {
+      case ExportOutcomeKind.shared:
+        if (outcome.message != null) {
+          showInfoSnackBar(context, outcome.message!);
+        }
+      case ExportOutcomeKind.error:
+        showInfoSnackBar(context, outcome.message ?? 'Export failed.');
     }
   }
 
@@ -124,7 +195,9 @@ class _DetailView extends ConsumerWidget {
       return;
     }
     try {
-      await ref.read(sharingServiceProvider).shareText(document.combinedText);
+      await ref
+          .read(sharingServiceProvider)
+          .shareText(OcrTextFormatter.formatForSharing(document));
     } catch (error) {
       if (!context.mounted) return;
       showErrorFeedback(context, error);
@@ -149,7 +222,9 @@ class _DetailView extends ConsumerWidget {
       showInfoSnackBar(context, 'There is no recognized text to copy.');
       return;
     }
-    Clipboard.setData(ClipboardData(text: document.combinedText));
+    Clipboard.setData(
+      ClipboardData(text: OcrTextFormatter.formatForSharing(document)),
+    );
     showInfoSnackBar(context, 'Text copied to clipboard.');
   }
 

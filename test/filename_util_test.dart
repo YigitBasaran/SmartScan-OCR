@@ -28,4 +28,27 @@ void main() {
     final date = DateTime(2026, 7, 4, 15, 30);
     expect(buildDefaultDocumentTitle(date), 'Scan 2026-07-04 15:30');
   });
+
+  group('buildShareFileName', () {
+    test('uses the sanitized title with underscores for spaces', () {
+      expect(
+        buildShareFileName('March Invoice', DateTime(2026, 7, 4, 15, 30, 45)),
+        'March_Invoice.pdf',
+      );
+    });
+
+    test('empty title falls back to the timestamped name', () {
+      expect(
+        buildShareFileName('   ', DateTime(2026, 7, 4, 15, 30, 45)),
+        'SmartScan_20260704_153045.pdf',
+      );
+    });
+
+    test('strips illegal characters and collapses separators', () {
+      expect(
+        buildShareFileName('Report: Q1  2026', DateTime(2026)),
+        'Report_Q1_2026.pdf',
+      );
+    });
+  });
 }

@@ -1,12 +1,11 @@
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:smartscanocr/core/errors/app_exception.dart';
 import 'package:smartscanocr/features/scanner/domain/services/document_scanner_service.dart';
 
 /// Primary [DocumentScannerService] backed by `cunning_document_scanner`
 /// (native ML Kit scanner on Android, VisionKit on iOS) for scanning, and
-/// `image_picker` for the first-class image-import path.
+/// `image_picker` for the offline image-import fallback.
 ///
 /// The scanner is always asked for images (`asPdf: false`); the app builds its
 /// own PDF from the reviewed pages. To add `google_mlkit_document_scanner` as an
@@ -23,6 +22,7 @@ class CunningDocumentScannerService implements DocumentScannerService {
     try {
       final paths = await CunningDocumentScanner.getPictures(
         noOfPages: maxPages,
+        androidScannerMode: AndroidScannerMode.full, // richest ML Kit mode
         asPdf: false, // return image paths, not the scanner's own PDF
       );
       if (paths == null) throw const ScanCancelled();
@@ -30,17 +30,36 @@ class CunningDocumentScannerService implements DocumentScannerService {
       return paths;
     } on AppException {
       rethrow;
-    } on MissingPluginException catch (e) {
-      throw ScannerUnavailable(e);
     } catch (e) {
-      // PlatformException (no Play Services / camera) or the plugin's own
-      // permission exception all mean "can't scan right now".
+      // PlatformException/MissingPlugin (no Play Services / camera) → can't scan.
       throw ScannerUnavailable(e);
     }
   }
 
   @override
-  Future<List<String>> importImages() async {
+  Future<List<String>> importImages({bool autoCorrect = true}) async {
+    // Best-effort: route the import through ML Kit's in-scanner gallery flow so
+    // imported photos get the same edge-detection / crop / perspective
+    // correction as camera scans. Requires Google Play Services.
+    if (autoCorrect) {
+      try {
+        final paths = await CunningDocumentScanner.getPictures(
+          scannerSource: ScannerSource.gallery,
+          androidScannerMode: AndroidScannerMode.full,
+          asPdf: false,
+        );
+        if (paths == null) throw const ScanCancelled(); // user cancelled
+        if (paths.isEmpty) throw const NoPagesSelected();
+        return paths;
+      } on AppException {
+        rethrow; // cancel / no-pages are intentional; don't fall back
+      } catch (_) {
+        // ML Kit gallery unavailable (no Play Services / plugin error) —
+        // fall through to the raw picker below.
+      }
+    }
+
+    // Raw fallback: works offline and without Play Services (no correction).
     try {
       final files = await _picker.pickMultiImage();
       if (files.isEmpty) throw const ScanCancelled();

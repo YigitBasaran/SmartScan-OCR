@@ -10,8 +10,11 @@ abstract class DocumentScannerService {
   /// scan produced nothing.
   Future<List<String>> scanDocuments({int maxPages = 30});
 
-  /// First-class fallback/import path: pick one or more images from the gallery.
+  /// First-class import path: pick one or more images from the gallery.
   ///
-  /// Throws [ScanCancelled] if the user cancels.
-  Future<List<String>> importImages();
+  /// When [autoCorrect] is true, imports are routed through the native scanner's
+  /// gallery flow to get automatic crop/perspective correction (best-effort;
+  /// needs platform support), falling back to a raw picker otherwise. Throws
+  /// [ScanCancelled] if the user cancels.
+  Future<List<String>> importImages({bool autoCorrect = true});
 }

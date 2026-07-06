@@ -18,6 +18,11 @@ class SettingsController extends Notifier<AppSettings> {
     state = state.copyWith(pdfQuality: quality);
     await ref.read(settingsRepositoryProvider).save(state);
   }
+
+  Future<void> setAutoPerspectiveCorrection(bool enabled) async {
+    state = state.copyWith(autoPerspectiveCorrection: enabled);
+    await ref.read(settingsRepositoryProvider).save(state);
+  }
 }
 
 final settingsControllerProvider =

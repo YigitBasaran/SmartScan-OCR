@@ -14,6 +14,7 @@ Map<String, dynamic> settingsToMap(AppSettings settings) => {
   'schemaVersion': AppConstants.settingsSchemaVersion,
   'themeMode': settings.themeMode.name,
   'pdfQuality': settings.pdfQuality.name,
+  'autoPerspectiveCorrection': settings.autoPerspectiveCorrection,
 };
 
 AppSettings settingsFromMap(Object? raw) {
@@ -21,5 +22,7 @@ AppSettings settingsFromMap(Object? raw) {
   return AppSettings(
     themeMode: parseThemeMode(map['themeMode'] as String?),
     pdfQuality: parsePdfQuality(map['pdfQuality'] as String?),
+    autoPerspectiveCorrection:
+        (map['autoPerspectiveCorrection'] as bool?) ?? true,
   );
 }

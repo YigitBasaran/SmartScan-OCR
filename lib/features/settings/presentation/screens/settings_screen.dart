@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smartscanocr/features/settings/presentation/widgets/about_section.dart';
+import 'package:smartscanocr/features/settings/presentation/widgets/auto_correction_toggle.dart';
 import 'package:smartscanocr/features/settings/presentation/widgets/pdf_quality_selector.dart';
 import 'package:smartscanocr/features/settings/presentation/widgets/theme_mode_selector.dart';
 
@@ -22,6 +23,9 @@ class SettingsScreen extends StatelessWidget {
           SizedBox(height: 8),
           _SectionHeader('PDF export'),
           PdfQualitySelector(),
+          SizedBox(height: 8),
+          _SectionHeader('Scanning'),
+          AutoCorrectionToggle(),
           SizedBox(height: 8),
           _SectionHeader('Text recognition'),
           ListTile(

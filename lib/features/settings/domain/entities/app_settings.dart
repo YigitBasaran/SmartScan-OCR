@@ -6,23 +6,34 @@ class AppSettings {
   const AppSettings({
     this.themeMode = ThemeMode.system,
     this.pdfQuality = PdfQuality.balanced,
+    this.autoPerspectiveCorrection = true,
   });
 
   final ThemeMode themeMode;
   final PdfQuality pdfQuality;
 
-  AppSettings copyWith({ThemeMode? themeMode, PdfQuality? pdfQuality}) =>
-      AppSettings(
-        themeMode: themeMode ?? this.themeMode,
-        pdfQuality: pdfQuality ?? this.pdfQuality,
-      );
+  /// Best-effort automatic crop/perspective correction for imports and scans.
+  final bool autoPerspectiveCorrection;
+
+  AppSettings copyWith({
+    ThemeMode? themeMode,
+    PdfQuality? pdfQuality,
+    bool? autoPerspectiveCorrection,
+  }) => AppSettings(
+    themeMode: themeMode ?? this.themeMode,
+    pdfQuality: pdfQuality ?? this.pdfQuality,
+    autoPerspectiveCorrection:
+        autoPerspectiveCorrection ?? this.autoPerspectiveCorrection,
+  );
 
   @override
   bool operator ==(Object other) =>
       other is AppSettings &&
       other.themeMode == themeMode &&
-      other.pdfQuality == pdfQuality;
+      other.pdfQuality == pdfQuality &&
+      other.autoPerspectiveCorrection == autoPerspectiveCorrection;
 
   @override
-  int get hashCode => Object.hash(themeMode, pdfQuality);
+  int get hashCode =>
+      Object.hash(themeMode, pdfQuality, autoPerspectiveCorrection);
 }

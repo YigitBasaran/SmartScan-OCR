@@ -1,27 +1,26 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:smartscanocr/core/errors/app_exception.dart';
-import 'package:smartscanocr/core/storage/file_storage_service.dart';
 import 'package:smartscanocr/features/documents/domain/entities/scanned_page.dart';
-import 'package:smartscanocr/features/pdf_export/domain/entities/pdf_quality.dart';
+import 'package:smartscanocr/features/pdf_export/domain/entities/pdf_export_mode.dart';
 import 'package:smartscanocr/features/pdf_export/domain/services/pdf_export_service.dart';
 
-/// Builds an image-based PDF (one page per image) from already-saved,
-/// already-compressed page JPEGs, and writes it via [FileStorageService].
+/// Builds an image-based PDF (one page per image) from the pages' already
+/// compressed effective images, optionally overlaying a branding watermark.
 class PdfExportServiceImpl implements PdfExportService {
-  PdfExportServiceImpl(this._storage);
-
-  final FileStorageService _storage;
+  /// Branding watermark text. ASCII so it renders in the built-in Helvetica;
+  /// a localized (e.g. Turkish) string would require an embedded Unicode font.
+  static const String watermarkText = 'Scanned with SmartScan OCR';
 
   @override
-  Future<String> createPdf({
-    required String documentId,
-    required List<ScannedPage> pages,
-    required PdfQuality quality,
+  Future<Uint8List> renderPdf(
+    List<ScannedPage> pages, {
+    PdfExportMode mode = PdfExportMode.watermarked,
   }) async {
     try {
       final doc = pw.Document();
@@ -31,7 +30,7 @@ class PdfExportServiceImpl implements PdfExportService {
       final a4LongSide = PdfPageFormat.a4.height;
 
       for (final page in pages) {
-        final bytes = await File(page.imagePath).readAsBytes();
+        final bytes = await File(page.effectiveImagePath).readAsBytes();
         final decoded = img.decodeImage(bytes);
         final width = decoded?.width ?? 1;
         final height = decoded?.height ?? 1;
@@ -42,13 +41,35 @@ class PdfExportServiceImpl implements PdfExportService {
           pw.Page(
             pageFormat: PdfPageFormat(width * scale, height * scale),
             margin: pw.EdgeInsets.zero,
-            build: (context) => pw.Image(provider, fit: pw.BoxFit.fill),
+            build: (context) => pw.Stack(
+              fit: pw.StackFit.expand,
+              children: [
+                pw.Image(provider, fit: pw.BoxFit.fill),
+                // Watermark is drawn ON TOP of the clean image, so it never
+                // affects the stored image files or OCR.
+                if (mode == PdfExportMode.watermarked)
+                  pw.Positioned(
+                    bottom: 10,
+                    right: 12,
+                    child: pw.Opacity(
+                      opacity: 0.28,
+                      child: pw.Text(
+                        watermarkText,
+                        style: pw.TextStyle(
+                          fontSize: 10,
+                          color: PdfColors.black,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         );
       }
 
-      final pdfBytes = await doc.save();
-      return _storage.writePdf(documentId, pdfBytes);
+      return doc.save();
     } on AppException {
       rethrow;
     } catch (e) {

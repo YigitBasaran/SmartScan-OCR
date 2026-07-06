@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:smartscanocr/features/documents/presentation/screens/document_detail_screen.dart';
+import 'package:smartscanocr/features/documents/presentation/screens/edit_document_screen.dart';
 import 'package:smartscanocr/features/documents/presentation/screens/library_screen.dart';
 import 'package:smartscanocr/features/scanner/presentation/review_launch_action.dart';
 import 'package:smartscanocr/features/scanner/presentation/screens/review_screen.dart';
@@ -23,6 +24,11 @@ final appRouter = GoRouter(
       path: '/document/:id',
       builder: (context, state) =>
           DocumentDetailScreen(documentId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/document/:id/edit',
+      builder: (context, state) =>
+          EditDocumentScreen(documentId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/settings',

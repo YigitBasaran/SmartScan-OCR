@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:smartscanocr/core/constants/app_constants.dart';
 import 'package:smartscanocr/features/documents/data/mappers/scanned_document_mapper.dart';
 import 'package:smartscanocr/features/documents/domain/entities/ocr_status.dart';
+import 'package:smartscanocr/features/documents/domain/entities/page_filter.dart';
 import 'package:smartscanocr/features/documents/domain/entities/scanned_page.dart';
 import 'package:smartscanocr/features/pdf_export/domain/entities/pdf_quality.dart';
+import 'package:smartscanocr/features/perspective/domain/entities/document_corner.dart';
 import 'package:smartscanocr/features/settings/data/mappers/app_settings_mapper.dart';
 import 'package:smartscanocr/features/settings/domain/entities/app_settings.dart';
 
@@ -21,11 +23,11 @@ void main() {
         pages: [
           const ScannedPage(
             id: 'p1',
-            imagePath: 'a.jpg',
+            originalImagePath: 'a.jpg',
             order: 0,
             ocrText: 'hello',
           ),
-          const ScannedPage(id: 'p2', imagePath: 'b.jpg', order: 1),
+          const ScannedPage(id: 'p2', originalImagePath: 'b.jpg', order: 1),
         ],
       );
 
@@ -49,8 +51,8 @@ void main() {
       final doc = makeDocument(
         id: 'x',
         pages: [
-          const ScannedPage(id: 'p2', imagePath: 'b.jpg', order: 1),
-          const ScannedPage(id: 'p1', imagePath: 'a.jpg', order: 0),
+          const ScannedPage(id: 'p2', originalImagePath: 'b.jpg', order: 1),
+          const ScannedPage(id: 'p1', originalImagePath: 'a.jpg', order: 0),
         ],
       );
       final restored = documentFromMap(documentToMap(doc));
@@ -97,6 +99,34 @@ void main() {
       final restored = documentFromMap(hiveMap);
       expect(restored.pages.first.ocrText, 'text');
     });
+
+    test('round-trips crop corners and filter mode', () {
+      final doc = makeDocument(
+        id: 'c',
+        pages: const [
+          ScannedPage(
+            id: 'p',
+            originalImagePath: 'a.jpg',
+            processedImagePath: 'p.jpg',
+            order: 0,
+            filterMode: PageFilter.blackWhite,
+            cropCorners: [
+              DocumentCorner(0, 0),
+              DocumentCorner(1, 0),
+              DocumentCorner(1, 1),
+              DocumentCorner(0, 1),
+            ],
+          ),
+        ],
+      );
+      final restored = documentFromMap(documentToMap(doc));
+      expect(restored.pages.first.filterMode, PageFilter.blackWhite);
+      expect(restored.pages.first.cropCorners, hasLength(4));
+      expect(
+        restored.pages.first.cropCorners!.last,
+        const DocumentCorner(0, 1),
+      );
+    });
   });
 
   group('settings mapper', () {
@@ -117,6 +147,15 @@ void main() {
       });
       expect(restored.themeMode, ThemeMode.system);
       expect(restored.pdfQuality, PdfQuality.balanced);
+    });
+
+    test('v1 settings (no autoPerspectiveCorrection) migrate to enabled', () {
+      final restored = settingsFromMap(<String, dynamic>{
+        'schemaVersion': 1,
+        'themeMode': 'system',
+        'pdfQuality': 'balanced',
+      });
+      expect(restored.autoPerspectiveCorrection, isTrue);
     });
   });
 }

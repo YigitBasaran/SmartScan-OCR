@@ -26,37 +26,132 @@ class FileStorageServiceImpl implements FileStorageService {
     return dir;
   }
 
+  Future<Directory> _pagesDir(String documentId) async {
+    final docDir = await _documentDir(documentId);
+    final dir = Directory(p.join(docDir.path, AppConstants.pagesDirName));
+    if (!dir.existsSync()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
+  Future<String> _pagePath(String documentId, String fileName) async {
+    final pagesDir = await _pagesDir(documentId);
+    return p.join(pagesDir.path, fileName);
+  }
+
   @override
-  Future<String> savePageImage(
+  Future<String> saveOriginalFromPath(
     String documentId,
-    int index,
-    List<int> bytes,
+    String pageId,
+    String sourcePath,
   ) async {
     try {
-      final docDir = await _documentDir(documentId);
-      final pagesDir = Directory(
-        p.join(docDir.path, AppConstants.pagesDirName),
+      final dest = await _pagePath(
+        documentId,
+        AppConstants.originalImageName(pageId),
       );
-      if (!pagesDir.existsSync()) {
-        await pagesDir.create(recursive: true);
+      // Originals are immutable: only copy if absent and not already in place.
+      if (!File(dest).existsSync() && sourcePath != dest) {
+        await File(sourcePath).copy(dest);
       }
-      final file = File(p.join(pagesDir.path, 'page_${index + 1}.jpg'));
-      await file.writeAsBytes(bytes, flush: true);
-      return file.path;
+      return dest;
     } catch (e) {
       throw FileWriteFailure(e);
     }
   }
 
   @override
-  Future<String> writePdf(String documentId, List<int> bytes) async {
+  Future<String> originalImagePath(String documentId, String pageId) =>
+      _pagePath(documentId, AppConstants.originalImageName(pageId));
+
+  @override
+  Future<String> stageProcessedImage(
+    String documentId,
+    String pageId,
+    List<int> bytes,
+  ) async {
     try {
-      final docDir = await _documentDir(documentId);
-      final file = File(p.join(docDir.path, AppConstants.pdfFileName));
-      await file.writeAsBytes(bytes, flush: true);
-      return file.path;
+      final path = await _pagePath(
+        documentId,
+        AppConstants.processedImageTempName(pageId),
+      );
+      await File(path).writeAsBytes(bytes, flush: true);
+      return path;
     } catch (e) {
       throw FileWriteFailure(e);
+    }
+  }
+
+  @override
+  Future<String> commitProcessedImage(
+    String documentId,
+    String pageId,
+    String version,
+  ) async {
+    try {
+      final tempPath = await _pagePath(
+        documentId,
+        AppConstants.processedImageTempName(pageId),
+      );
+      final finalPath = await _pagePath(
+        documentId,
+        AppConstants.processedImageName(pageId, version),
+      );
+      await File(tempPath).rename(finalPath); // atomic on same volume
+      return finalPath;
+    } catch (e) {
+      throw FileWriteFailure(e);
+    }
+  }
+
+  @override
+  Future<void> discardStagedImage(String documentId, String pageId) async {
+    try {
+      final path = await _pagePath(
+        documentId,
+        AppConstants.processedImageTempName(pageId),
+      );
+      final file = File(path);
+      if (file.existsSync()) await file.delete();
+    } catch (_) {
+      // Best-effort rollback.
+    }
+  }
+
+  @override
+  Future<String> stagePdf(String documentId, List<int> bytes) async {
+    try {
+      final docDir = await _documentDir(documentId);
+      final path = p.join(docDir.path, AppConstants.pdfTempFileName);
+      await File(path).writeAsBytes(bytes, flush: true);
+      return path;
+    } catch (e) {
+      throw FileWriteFailure(e);
+    }
+  }
+
+  @override
+  Future<String> commitPdf(String documentId) async {
+    try {
+      final docDir = await _documentDir(documentId);
+      final tempPath = p.join(docDir.path, AppConstants.pdfTempFileName);
+      final finalPath = p.join(docDir.path, AppConstants.pdfFileName);
+      await File(tempPath).rename(finalPath);
+      return finalPath;
+    } catch (e) {
+      throw FileWriteFailure(e);
+    }
+  }
+
+  @override
+  Future<void> discardStagedPdf(String documentId) async {
+    try {
+      final docDir = await _documentDir(documentId);
+      final file = File(p.join(docDir.path, AppConstants.pdfTempFileName));
+      if (file.existsSync()) await file.delete();
+    } catch (_) {
+      // Best-effort rollback.
     }
   }
 
@@ -64,6 +159,61 @@ class FileStorageServiceImpl implements FileStorageService {
   Future<String> pdfFilePath(String documentId) async {
     final docDir = await _documentDir(documentId);
     return p.join(docDir.path, AppConstants.pdfFileName);
+  }
+
+  @override
+  Future<String> stagePdfForShare(String documentId, String fileName) async {
+    try {
+      final source = File(await pdfFilePath(documentId));
+      final tempDir = await getTemporaryDirectory();
+      final dest = p.join(tempDir.path, fileName);
+      await source.copy(dest);
+      return dest;
+    } catch (e) {
+      throw ShareFailure(e);
+    }
+  }
+
+  @override
+  Future<String> writeTempShareFile(String fileName, List<int> bytes) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final dest = p.join(tempDir.path, fileName);
+      await File(dest).writeAsBytes(bytes, flush: true);
+      return dest;
+    } catch (e) {
+      throw ShareFailure(e);
+    }
+  }
+
+  @override
+  Future<void> deleteFileAt(String path) async {
+    try {
+      final file = File(path);
+      if (file.existsSync()) await file.delete();
+    } catch (_) {
+      // Best-effort.
+    }
+  }
+
+  @override
+  Future<void> deletePageFiles(String documentId, String pageId) async {
+    try {
+      final pagesDir = await _pagesDir(documentId);
+      if (!pagesDir.existsSync()) return;
+      final prefix = '$pageId.';
+      await for (final entity in pagesDir.list()) {
+        if (entity is File && p.basename(entity.path).startsWith(prefix)) {
+          try {
+            await entity.delete();
+          } catch (_) {
+            // Best-effort per file.
+          }
+        }
+      }
+    } catch (_) {
+      // Best-effort.
+    }
   }
 
   @override

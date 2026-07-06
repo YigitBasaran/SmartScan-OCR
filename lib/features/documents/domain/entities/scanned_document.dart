@@ -28,7 +28,8 @@ class ScannedDocument {
   int get pageCount => pages.length;
   bool get hasText => combinedText.trim().isNotEmpty;
   bool get hasPdf => (pdfPath ?? '').isNotEmpty;
-  String? get thumbnailPath => pages.isEmpty ? null : pages.first.imagePath;
+  String? get thumbnailPath =>
+      pages.isEmpty ? null : pages.first.effectiveImagePath;
 
   ScannedDocument copyWith({
     String? id,

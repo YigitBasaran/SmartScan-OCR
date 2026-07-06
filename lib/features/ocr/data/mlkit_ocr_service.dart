@@ -24,7 +24,7 @@ class MlKitOcrService implements OcrService {
       for (var i = 0; i < pages.length; i++) {
         onProgress?.call(i, pages.length);
         try {
-          final input = InputImage.fromFilePath(pages[i].imagePath);
+          final input = InputImage.fromFilePath(pages[i].effectiveImagePath);
           final recognized = await recognizer.processImage(input);
           results.add(
             OcrPageResult(

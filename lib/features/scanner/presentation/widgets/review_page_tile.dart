@@ -10,12 +10,14 @@ class ReviewPageTile extends StatelessWidget {
     required this.index,
     required this.onRotate,
     required this.onDelete,
+    required this.onEdit,
   });
 
   final ScannedPage page;
   final int index;
   final VoidCallback onRotate;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +34,9 @@ class ReviewPageTile extends StatelessWidget {
                 width: 52,
                 height: 68,
                 child: PageThumbnail(
-                  path: page.imagePath,
-                  quarterTurns: page.rotationQuarterTurns,
+                  path: page.effectiveImagePath,
+                  quarterTurns: page.displayQuarterTurns,
+                  filter: page.displayFilter,
                 ),
               ),
             ),
@@ -43,6 +46,11 @@ class ReviewPageTile extends StatelessWidget {
                 'Page ${index + 1}',
                 style: theme.textTheme.titleMedium,
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.tune),
+              tooltip: 'Edit page',
+              onPressed: onEdit,
             ),
             IconButton(
               icon: const Icon(Icons.rotate_right),

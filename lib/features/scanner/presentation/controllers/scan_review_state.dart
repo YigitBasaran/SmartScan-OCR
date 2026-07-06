@@ -1,18 +1,7 @@
+import 'package:smartscanocr/features/documents/domain/entities/processing_phase.dart';
 import 'package:smartscanocr/features/documents/domain/entities/scanned_page.dart';
 
-/// The step the save pipeline is currently on.
-enum ProcessingPhase { idle, preparing, ocr, generatingPdf, saving, done }
-
-extension ProcessingPhaseLabel on ProcessingPhase {
-  String get label => switch (this) {
-    ProcessingPhase.idle => '',
-    ProcessingPhase.preparing => 'Preparing pages',
-    ProcessingPhase.ocr => 'Recognizing text',
-    ProcessingPhase.generatingPdf => 'Creating PDF',
-    ProcessingPhase.saving => 'Saving',
-    ProcessingPhase.done => 'Done',
-  };
-}
+export 'package:smartscanocr/features/documents/domain/entities/processing_phase.dart';
 
 /// Immutable state for the scan/import review + save flow.
 class ScanReviewState {

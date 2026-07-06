@@ -2,18 +2,14 @@ import 'package:smartscanocr/core/constants/app_constants.dart';
 
 /// Upgrades a stored document map to the current schema shape.
 ///
-/// Version 1 is the current baseline. When the persisted shape changes, bump
-/// [AppConstants.documentSchemaVersion] and add a migration step here, e.g.:
-///
-/// ```dart
-/// if (version < 2) {
-///   map = _migrateDocumentV1toV2(map);
-/// }
-/// ```
+/// v1 → v2 added non-destructive page editing fields (`originalImagePath`,
+/// `processedImagePath`, `cropCorners`, `filterMode`). Page-level field
+/// fallbacks are handled defensively in `pageFromMap` (old `imagePath` →
+/// `originalImagePath`), so this only needs to stamp the current version.
 Map<String, dynamic> migrateDocumentMap(Map<String, dynamic> map) {
   final version = (map['schemaVersion'] as num?)?.toInt() ?? 1;
   var result = map;
-  // Future migrations chain here based on `version`.
+  // Future document migrations chain here based on `version`.
   if (version != AppConstants.documentSchemaVersion) {
     result = {...result, 'schemaVersion': AppConstants.documentSchemaVersion};
   }
@@ -21,10 +17,15 @@ Map<String, dynamic> migrateDocumentMap(Map<String, dynamic> map) {
 }
 
 /// Upgrades a stored settings map to the current schema shape.
+///
+/// v1 → v2 added `autoPerspectiveCorrection` (default enabled).
 Map<String, dynamic> migrateSettingsMap(Map<String, dynamic> map) {
   final version = (map['schemaVersion'] as num?)?.toInt() ?? 1;
   var result = map;
-  if (version != AppConstants.settingsSchemaVersion) {
+  if (version < 2 && !result.containsKey('autoPerspectiveCorrection')) {
+    result = {...result, 'autoPerspectiveCorrection': true};
+  }
+  if (result['schemaVersion'] != AppConstants.settingsSchemaVersion) {
     result = {...result, 'schemaVersion': AppConstants.settingsSchemaVersion};
   }
   return result;

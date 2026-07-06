@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smartscanocr/core/widgets/app_snack_bar.dart';
+import 'package:smartscanocr/features/documents/domain/entities/scanned_page.dart';
+import 'package:smartscanocr/features/documents/presentation/screens/page_editor_screen.dart';
 import 'package:smartscanocr/features/scanner/presentation/controllers/scan_review_controller.dart';
 import 'package:smartscanocr/features/scanner/presentation/controllers/scan_review_state.dart';
 import 'package:smartscanocr/features/scanner/presentation/review_launch_action.dart';
@@ -30,6 +32,13 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   ScanReviewController get _notifier =>
       ref.read(scanReviewControllerProvider.notifier);
+
+  Future<void> _editPage(ScannedPage page) async {
+    final edited = await Navigator.of(context).push<ScannedPage>(
+      MaterialPageRoute(builder: (_) => PageEditorScreen(page: page)),
+    );
+    if (edited != null) _notifier.applyPageEdit(edited);
+  }
 
   Future<void> _maybeLaunch() async {
     if (_launched) return;
@@ -180,6 +189,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           index: index,
           onRotate: () => _notifier.rotatePage(page.id),
           onDelete: () => _notifier.removePage(page.id),
+          onEdit: () => _editPage(page),
         );
       },
     );

@@ -5,13 +5,15 @@ import 'package:smartscanocr/features/documents/domain/entities/scanned_page.dar
 /// Test factory for a [ScannedPage].
 ScannedPage makePage({
   String id = 'p1',
-  String imagePath = 'p.jpg',
+  String originalImagePath = 'p.jpg',
+  String? processedImagePath,
   int order = 0,
   int rotation = 0,
   String? ocrText,
 }) => ScannedPage(
   id: id,
-  imagePath: imagePath,
+  originalImagePath: originalImagePath,
+  processedImagePath: processedImagePath,
   order: order,
   rotationQuarterTurns: rotation,
   ocrText: ocrText,
@@ -38,7 +40,8 @@ ScannedDocument makeDocument({
         [
           ScannedPage(
             id: '${id}_p1',
-            imagePath: '$id.jpg',
+            originalImagePath: '$id.jpg',
+            processedImagePath: '$id.jpg',
             order: 0,
             ocrText: text,
           ),

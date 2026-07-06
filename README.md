@@ -16,16 +16,26 @@ recognized text — then share the PDF or the extracted text.
 
 ## Features
 
-- **Scan** documents with a native scanner UI (auto edge detection, multi-page).
-- **Import image(s)** from the gallery — a first-class path that also works when a camera/scanner isn't available.
-- **Review** before saving: reorder, rotate and delete pages, and name the document.
+- **Scan** documents with a native scanner UI (auto edge detection, multi-page). Camera scans are perspective-corrected
+  by ML Kit.
+- **Import image(s)** as document pages — routed through ML Kit's gallery correction when available (best-effort), with
+  a raw offline picker as fallback. Imports are treated like scans, not plain photos.
+- **Review** before saving: reorder, rotate, delete pages, and name the document.
+- **Per-page editing** (before *and* after saving): rotate, choose a **filter** (grayscale / black & white / enhance),
+  and **manually crop/straighten** with a draggable four-corner overlay. Originals are never overwritten.
+- **Edit saved documents**: reopen to reorder / add / delete / edit pages and rename. Saving **regenerates the PDF** and
+  re-runs OCR only for new or changed pages (unchanged pages keep their text). Saves are transaction-like — a failure
+  never corrupts the existing document or its PDF.
 - **On-device OCR** per page, with progress ("Preparing / Recognizing text / Creating PDF / Saving", page _x_ of _N_).
 - **PDF export** generated from the reviewed pages, with a selectable quality/size trade-off.
 - **Local library** with a responsive grid, per-document thumbnail, page count, date and OCR-status chip.
 - **Search** across document titles **and** recognized text.
 - **Document detail**: metadata, page previews, per-page OCR text, and actions to **copy text**, **share PDF**,
-  **share text**, **print**, **rename** and **delete** (destructive actions are confirmed).
-- **Settings**: theme mode (system/light/dark) and default PDF quality, stored locally.
+  **share text**, **print**, **rename**, **edit** and **delete** (destructive actions are confirmed).
+  Shared PDFs are named from the document title (e.g. `March_Invoice.pdf`), and shared/copied text includes the title
+  and per-page `Page N` sections.
+- **Settings**: theme mode (system/light/dark), default PDF quality, and best-effort **auto perspective correction**,
+  stored locally.
 - Polished empty / loading / error states and typed, user-friendly error handling throughout.
 
 ---
@@ -35,9 +45,11 @@ recognized text — then share the PDF or the extracted text.
 | Screen | What it does |
 |---|---|
 | **Library** (`/`) | Searchable grid of saved documents; entry points to Scan and Import; empty/loading/error states. |
-| **Review** (`/review`) | Reorder / rotate / delete pages, rename the document, then "Run OCR & Save PDF" with a progress overlay. |
-| **Document detail** (`/document/:id`) | Metadata, page previews, per-page OCR text, and share/copy/print/rename/delete. |
-| **Settings** (`/settings`) | Theme mode, default PDF quality, on-device OCR note, and About. |
+| **Review** (`/review`) | Reorder / rotate / delete / edit pages, rename the document, then "Run OCR & Save PDF" with a progress overlay. |
+| **Page editor** | Rotate, pick a filter, and manually crop/straighten a page with a draggable four-corner overlay. |
+| **Document detail** (`/document/:id`) | Metadata, page previews, per-page OCR text, and share/copy/print/rename/edit/delete. |
+| **Edit document** (`/document/:id/edit`) | Reorder / add / delete / edit pages and rename; saving regenerates the PDF and OCR. |
+| **Settings** (`/settings`) | Theme mode, default PDF quality, auto perspective correction, on-device OCR note, and About. |
 
 ---
 
@@ -184,9 +196,13 @@ flutter build apk --debug
 
 ## Known limitations
 
+- **Perspective correction is best-effort.** Camera scans are corrected by ML Kit; imports are corrected via ML Kit's
+  gallery flow when Google Play Services is available. Extreme angles, curled pages, low contrast, shadows, or edges out
+  of frame may still need the **manual crop/straighten** tool in the page editor. A fully automatic detector
+  (`PerspectiveCorrectionService`) is stubbed as a no-op extension point — see the OpenCV note in the roadmap.
 - **Google Play Services required for scanning/OCR.** On devices/emulators without Play Services, the native scanner and
-  ML Kit OCR are unavailable; the app degrades gracefully (import still works, and a PDF is still produced without
-  recognized text).
+  ML Kit OCR (and ML Kit gallery correction) are unavailable; the app degrades gracefully — raw import still works,
+  manual crop still works, and a PDF is still produced without recognized text.
 - **OCR language:** Latin script only in this version.
 - **Imported image formats:** the image pipeline supports common formats (JPEG/PNG/etc.); formats it can't decode (e.g.
   HEIC) are reported as an error rather than crashing.
@@ -196,8 +212,39 @@ flutter build apk --debug
 
 ---
 
+## Watermark & monetization
+
+- **Free exported PDFs carry a "Scanned with SmartScan OCR" watermark**, drawn as a PDF overlay on top of each page.
+  It is **never baked into the stored/clean images or the OCR input**, so OCR, `combinedText`, and shared text stay
+  clean and the original + processed image files remain unwatermarked. The watermark is also shown (visual-only) on the
+  in-app document previews and library thumbnails, so you can see what a free export looks like.
+- **Watermark-free export is user-initiated and gated per export**: on **Share PDF**, choose *Export with watermark*
+  (free) or *Remove watermark* → watch a rewarded ad → the current PDF is exported watermark-free (a temp file; the
+  stored `export.pdf` is not changed and OCR is not re-run). The ad is required for **every** watermark-free export —
+  there is no permanent unlock. Ads never auto-show and never gate scanning/editing/saving/viewing.
+- **Live edit preview:** filter (grayscale / B&W / enhance) and rotation update on-screen immediately in the page editor
+  and thumbnails; the crop is shown as a corner box and its straightened result appears after you Save.
+- **Rewarded ads are currently stubbed** behind a `RewardedAdService` interface (a simulated service that grants the
+  reward, so the flow is fully testable). The real **`google_mobile_ads`** plugin is **deferred**: version 9.0.0 compiles
+  on this toolchain but has an open, unresolved **release-mode startup crash on Flutter 3.44 + AGP 9 + Android 16**
+  ([googleads-mobile-flutter #1444](https://github.com/googleads/googleads-mobile-flutter/issues/1444)). Swapping in the
+  real service is a one-line provider change once that is fixed/verified.
+- **Before a Play Store release with real ads:** add the plugin + AdMob App ID meta-data, then update the Privacy
+  Policy, the Play Console Data Safety form, and the ads disclosure, and inspect the **merged AndroidManifest** for the
+  `com.google.android.gms.permission.AD_ID` permission (the ads SDK auto-merges it into the currently permission-free
+  manifest). Use Google's test ad unit IDs during development.
+
+---
+
 ## Roadmap
 
+- **Real Google Mobile Ads rewarded implementation** behind the existing `RewardedAdService`, once the AGP-9 /
+  Android-16 release-startup crash ([#1444]) is resolved — plus a localized (e.g. Turkish) watermark string, which needs
+  an embedded Unicode font for the `ı` glyph.
+- **Automatic OpenCV dewarp** behind the existing `PerspectiveCorrectionService` interface. Deferred deliberately: the
+  current OpenCV Dart bindings (`opencv_dart`/`dartcv4`) pin `hooks: ^1.0.0` while this toolchain resolves `hooks 2.0.2`,
+  which breaks `flutter pub get`, and their from-source NDK-28 native build is unvalidated. The manual four-corner crop
+  covers the same need today with zero native-build risk.
 - Searchable PDFs with an invisible OCR text layer.
 - OCR bounding-box overlay on page previews.
 - Batch export; PDF merge/split.
@@ -205,7 +252,6 @@ flutter build apk --debug
 - Password-protected PDFs.
 - Signatures and annotations.
 - Optional cloud backup (kept optional; no mandatory backend).
-- Improved image-enhancement pipeline (auto-contrast, de-skew, black-and-white).
 - Drift + FTS5 search backend if libraries grow into the thousands (a drop-in behind `DocumentRepository`).
 
 ---
